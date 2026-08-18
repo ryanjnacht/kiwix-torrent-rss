@@ -36,4 +36,12 @@ public class KiwixRssSettings
     ///     Description for the RSS feed.
     /// </summary>
     public string FeedDescription { get; set; } = "Kiwix ZIM Files - Torrent Downloads";
+
+    /// <summary>
+    ///     Format template for individual RSS item titles.
+    ///     Use field names separated by '+' (e.g., "title+language+version").
+    ///     Supported fields: title, name, language, version, status, category, flavour, size.
+    ///     Empty fields are omitted. Uses the current default format if not set.
+    /// </summary>
+    public string? FeedItemTitleFormat { get; set; }
 }

@@ -22,6 +22,7 @@ that cannot negotiate modern TLS connections with the Kiwix download server.
     - **LATEST** — newest version of a multi-version series
     - **OBSOLETE** — superseded by a newer version
 - **Optional torrent proxy** — Pass `?proxy=true` to rewrite torrent URLs through this app, bypassing TLS issues with old clients
+- **Customizable item titles** — Shape RSS item titles with a field template via the `?format=` query parameter or the `FeedItemTitleFormat` setting
 - **Zero external dependencies** — No NuGet packages beyond the built-in ASP.NET Core SDK
 
 ## Endpoints
@@ -32,6 +33,7 @@ that cannot negotiate modern TLS connections with the Kiwix download server.
 | `GET /kiwix.rss?proxy=true`      | RSS feed with torrent URLs proxied through this app                  |
 | `GET /kiwix.rss?q=wikipedia eng` | Filtered RSS — matches entries containing both "wikipedia" AND "eng" |
 | `GET /kiwix.rss?q=2026 eng GB`   | Multi-word filter — all terms must match                             |
+| `GET /kiwix.rss?format=title+language` | RSS feed with a custom item title format                    |
 | `GET /proxy/torrent?u=<url>`     | Proxies a torrent file download through the app                      |
 | Any other path                   | 404 Not Found                                                        |
 
@@ -60,13 +62,40 @@ Use `?proxy=true` when your BitTorrent client cannot negotiate modern TLS with t
 
 ### RSS feed item format
 
-Each item title includes all available metadata for easy filtering:
+Item titles are built from a `+`-separated field template, configured either per request
+with the `?format=` query parameter or as a default with the `FeedItemTitleFormat` setting.
+Fields that are empty for a given entry are omitted, and the remaining values are joined
+with a single space.
+
+Supported fields:
+
+| Field      | Example              |
+|------------|----------------------|
+| `title`    | Python PEPs          |
+| `name`     | peps                 |
+| `language` | eng                  |
+| `version`  | 2026-08              |
+| `status`   | UNIQUE               |
+| `category` | wikipedia            |
+| `flavour`  | nopic                |
+| `size`     | 8 MB                 |
+
+With the default template (`title+name+language+version+status+size`):
+
+```
+Python PEPs peps eng 2026-08 UNIQUE 8 MB
+```
+
+If no template is set, items fall back to a detailed format that includes all available
+metadata:
 
 ```
 Python PEPs - peps.python_en_all_2026-08.zim (eng, 2026-08) [UNIQUE] - 8 MB; other (standard)
 ```
 
 Components: **Display Title** — **filename.zim** (**language**, **version**) **[STATUS]** — **size; category (flavour)**
+
+Note: `?q=` filtering always matches against the detailed format, regardless of the title template in use.
 
 ## Configuration
 
@@ -80,18 +109,20 @@ Edit `appsettings.json`:
     "DownloadBaseUrl": "https://lb.download.kiwix.org",
     "FeedTitle": "Kiwix Torrent RSS",
     "FeedLink": "https://kiwix.org",
-    "FeedDescription": "Kiwix ZIM Files - Torrent Downloads"
+    "FeedDescription": "Kiwix ZIM Files - Torrent Downloads",
+    "FeedItemTitleFormat": "title+name+language+version+status+size"
   }
 }
 ```
 
-| Setting                 | Default           | Description                        |
-|-------------------------|-------------------|------------------------------------|
-| `ScrapingIntervalHours` | 24                | How often to re-scrape the catalog |
-| `CatalogUrl`            | (see above)       | OPDS catalog API endpoint          |
-| `FeedTitle`             | Kiwix Torrent RSS | RSS channel title                  |
-| `FeedLink`              | https://kiwix.org | RSS channel link                   |
-| `FeedDescription`       | (see above)       | RSS channel description            |
+| Setting                 | Default                                | Description                                        |
+|-------------------------|----------------------------------------|----------------------------------------------------|
+| `ScrapingIntervalHours` | 24                                     | How often to re-scrape the catalog                 |
+| `CatalogUrl`            | (see above)                            | OPDS catalog API endpoint                          |
+| `FeedTitle`             | Kiwix Torrent RSS                      | RSS channel title                                  |
+| `FeedLink`              | https://kiwix.org                      | RSS channel link                                   |
+| `FeedDescription`       | (see above)                            | RSS channel description                            |
+| `FeedItemTitleFormat`   | title+name+language+version+status+size | `+`-separated field template for RSS item titles  |
 
 ## Building and Running
 

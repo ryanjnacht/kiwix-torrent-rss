@@ -41,7 +41,8 @@ app.MapGet("/kiwix.rss", (KiwixRssCache cache, KiwixRssBuilder builder, HttpCont
     var proxyBaseUrl = httpContext.Request.Query.TryGetValue("proxy", out var proxyQuery) && proxyQuery[0] == "true"
         ? GetProxyBaseUrl(httpContext)
         : null;
-    var rss = builder.Build(entries, q, proxyBaseUrl);
+    var customFormat = httpContext.Request.Query.TryGetValue("format", out var formatQuery) ? formatQuery[0] : null;
+    var rss = builder.Build(entries, q, proxyBaseUrl, customFormat);
     return Results.Content(rss, "application/xml");
 });
 

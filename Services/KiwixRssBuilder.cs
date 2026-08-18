@@ -23,8 +23,9 @@ public class KiwixRssBuilder
     ///     Builds the RSS XML string from the given entries, sorted by publication date (newest first).
     ///     Optionally filters entries by a query string matched against the formatted title.
     ///     The proxyBaseUrl rewrites torrent URLs to route through this app.
+    ///     The customFormat overrides the default title format for individual items.
     /// </summary>
-    public string Build(IList<KiwixEntry> entries, string? query = null, string? proxyBaseUrl = null)
+    public string Build(IList<KiwixEntry> entries, string? query = null, string? proxyBaseUrl = null, string? customFormat = null)
     {
         var filtered = string.IsNullOrEmpty(query)
             ? entries
@@ -57,7 +58,7 @@ public class KiwixRssBuilder
         writer.WriteElementString("description", _settings.FeedDescription);
         writer.WriteElementString("lastBuildDate", FormatRfc822(DateTime.UtcNow));
 
-        foreach (var entry in sortedEntries) WriteItem(writer, entry, proxyBaseUrl);
+        foreach (var entry in sortedEntries) WriteItem(writer, entry, proxyBaseUrl, customFormat);
 
         writer.WriteEndElement(); // channel
         writer.WriteEndElement(); // rss
@@ -69,7 +70,7 @@ public class KiwixRssBuilder
     /// <summary>
     ///     Writes a single RSS &lt;item&gt; element for a ZIM entry.
     /// </summary>
-    private static void WriteItem(XmlWriter writer, KiwixEntry entry, string? proxyBaseUrl)
+    private void WriteItem(XmlWriter writer, KiwixEntry entry, string? proxyBaseUrl, string? customFormat)
     {
         var torrentUrl = string.IsNullOrEmpty(proxyBaseUrl)
             ? entry.TorrentUrl
@@ -77,7 +78,7 @@ public class KiwixRssBuilder
 
         writer.WriteStartElement("item");
 
-        writer.WriteElementString("title", FormatTitle(entry));
+        writer.WriteElementString("title", FormatTitle(entry, customFormat));
         writer.WriteElementString("link", torrentUrl);
 
         writer.WriteStartElement("guid");
@@ -98,10 +99,24 @@ public class KiwixRssBuilder
     }
 
     /// <summary>
+    ///     Formats the RSS item title using a custom format string if provided,
+    ///     otherwise falls back to the default format from settings.
+    /// </summary>
+    private string FormatTitle(KiwixEntry entry, string? customFormat)
+    {
+        var format = string.IsNullOrEmpty(customFormat) ? _settings.FeedItemTitleFormat : customFormat;
+
+        if (!string.IsNullOrEmpty(format))
+            return FormatCustomTitle(entry, format);
+
+        return FormatDefaultTitle(entry);
+    }
+
+    /// <summary>
     ///     Formats the RSS title with display name, filename, language, version, status, and description.
     ///     Example: "Python PEPs - peps.python_en_all_2026-08.zim (eng, 2026-08) [LATEST] - 8 MB; other (standard)"
     /// </summary>
-    private static string FormatTitle(KiwixEntry entry)
+    private static string FormatDefaultTitle(KiwixEntry entry)
     {
         var name = string.IsNullOrEmpty(entry.Name) ? "unknown" : entry.Name;
         var version = string.IsNullOrEmpty(entry.Version) ? "" : $"_{entry.Version}";
@@ -114,13 +129,47 @@ public class KiwixRssBuilder
     }
 
     /// <summary>
+    ///     Formats the RSS item title using a custom format string.
+    ///     Fields are separated by '+' and empty fields are omitted.
+    ///     Supported fields: title, name, language, version, status, category, flavour, size.
+    ///     Example: "title+language+version" → "Python PEPs eng 2026-08"
+    /// </summary>
+    private static string FormatCustomTitle(KiwixEntry entry, string format)
+    {
+        var parts = format.Split('+');
+        var values = new List<string?>();
+
+        foreach (var field in parts)
+        {
+            var trimmed = field.Trim();
+            var value = trimmed switch
+            {
+                "title" => entry.Title,
+                "name" => entry.Name,
+                "language" => entry.Language,
+                "version" => entry.Version,
+                "status" => entry.Status,
+                "category" => entry.Category,
+                "flavour" => entry.Flavour,
+                "size" => FormatSize(entry.SizeBytes),
+                _ => null
+            };
+
+            if (!string.IsNullOrEmpty(value))
+                values.Add(value);
+        }
+
+        return string.Join(" ", values);
+    }
+
+    /// <summary>
     ///     Checks whether the entry's title contains all terms from the query.
     ///     Terms are separated by whitespace; each must match case-insensitively.
     ///     Example: "2026 eng" matches only entries containing both "2026" AND "eng".
     /// </summary>
     private static bool MatchesAllTerms(KiwixEntry entry, string query)
     {
-        var title = FormatTitle(entry);
+        var title = FormatDefaultTitle(entry);
         var terms = query.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
         return terms.All(t => title.Contains(t, StringComparison.OrdinalIgnoreCase));
     }
