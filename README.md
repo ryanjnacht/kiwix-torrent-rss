@@ -3,6 +3,18 @@
 A .NET 10 minimal API service that scrapes the Kiwix OPDS catalog, generates an RSS feed of ZIM file torrents, and
 proxies torrent downloads to work around old BitTorrent client TLS compatibility issues.
 
+## Use the hosted service
+
+Don't want to self-host? The feed is publicly available:
+
+```
+https://kiwix-torrent-rss.duckduckdev.nl/kiwix.rss
+```
+
+Add this URL as a torrent RSS feed in your BitTorrent client (uTorrent and others) and it will keep finding new and
+updated ZIM file torrents for you. All of the query parameters documented below (`?q=`, `?proxy=true`, `?format=`)
+work on the hosted instance. The rest of this README describes how to build and run your own copy.
+
 ## Overview
 
 This service periodically fetches the [Kiwix OPDS catalog](https://opds.library.kiwix.org/catalog/v2/entries?count=-1) —
